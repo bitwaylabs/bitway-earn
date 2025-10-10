@@ -1,0 +1,26 @@
+{
+    "name": "bitway-earn",
+    "version": "1.0.0",
+    "description": "Bitway Earn contracts",
+    "scripts": {
+        "compile": "npx hardhat compile",
+        "test": "npx hardhat test --network hardhat",
+        "deploy-test-token": "npx hardhat run scripts/deploy-test-token.js --network testnet",
+        "deploy-lp-testnet": "npx hardhat run scripts/deploy-lp.js --network testnet",
+        "deploy-lp": "npx hardhat run scripts/deploy-lp.js --network mainnet",
+        "deploy-withdraw-vault-testnet": "npx hardhat run scripts/deploy-withdraw-vault.js --network testnet",
+        "deploy-withdraw-vault": "npx hardhat run scripts/deploy-withdraw-vault.js --network mainnet",
+        "deploy-vault-testnet": "npx hardhat run scripts/deploy-vault.js --network testnet",
+        "deploy-vault": "npx hardhat run scripts/deploy-vault.js --network mainnet"
+    },
+    "author": "Bitway Labs",
+    "license": "MIT",
+    "devDependencies": {
+        "@nomicfoundation/hardhat-ethers": "^3.0.5",
+        "hardhat": "^2.19.2"
+    },
+    "dependencies": {
+        "@openzeppelin/contracts": "5.4.0",
+        "ethers": "6.15.0"
+    }
+}
