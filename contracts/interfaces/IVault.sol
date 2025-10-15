@@ -47,8 +47,10 @@ interface IVault {
 
     function stake(address _token, uint256 _stakedAmount) external;
     function requestClaim(address _token, uint256 _amount) external returns(uint256);
+    function cancelClaim(uint _queueId, address _token) external;
     function claim(uint256 _queueID, address token) external;
     function flashWithdrawWithPenalty(address _token, uint256 _amount) external;
+
     function transferToCustodian(address _token, uint256 _amount) external;
     function emergencyWithdraw(address _token, address _receiver) external;
 
