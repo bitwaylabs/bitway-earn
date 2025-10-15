@@ -43,6 +43,9 @@ contract Vault is IVault, Pausable, AccessControl {
     bytes32 private constant PAUSER_ROLE = keccak256("PAUSER_ROLE");
     bytes32 private constant BOT_ROLE = keccak256("BOT_ROLE");
 
+    // Blacklist
+    mapping(address => bool) private _blacklist;
+
     // Misc
     address private custodian;
     uint256 private penaltyRate = 50; // 0.5%
@@ -138,6 +141,8 @@ contract Vault is IVault, Pausable, AccessControl {
 
     event FlashStatusChanged(bool indexed oldStatus, bool indexed newStatus);
     event CancelStatusChanged(bool indexed oldStatus, bool indexed newStatus);
+    event BlacklistAdded(address indexed _address);
+    event BlacklistRemoved(address indexed _address);
 
     modifier onlySupportedToken(address _token) {
         require(supportedTokens[_token], "Unsupported token");
@@ -151,6 +156,11 @@ contract Vault is IVault, Pausable, AccessControl {
 
     modifier onlyCancelEnable() {
         require(!cancelNotEnable, "cancel claim not enabled");
+        _;
+    }
+
+    modifier notBlacklisted(address _address) {
+        require(!isBlacklisted(_address), "blacklisted");
         _;
     }
 
@@ -172,11 +182,27 @@ contract Vault is IVault, Pausable, AccessControl {
         emit CancelStatusChanged(oldStatus, _enable);
     }
 
+    function addToBlacklist(address _address) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(!isBlacklisted(_address), "already blacklisted");
+
+        _blacklist[_address] = true;
+
+        emit BlacklistAdded(_address);
+    }
+
+    function removeFromBlacklist(address _address) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        require(isBlacklisted(_address), "not blacklisted");
+
+        _blacklist[_address] = false;
+
+        emit BlacklistRemoved(_address);
+    }
+
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
     ///                                             write                                                 ///
     /////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    function stake(address _token,  uint256 _stakedAmount) external onlySupportedToken(_token) whenNotPaused {
+    function stake(address _token,  uint256 _stakedAmount) external onlySupportedToken(_token) whenNotPaused notBlacklisted(msg.sender) {
         AssetsInfo storage assetsInfo = userAssetsInfo[msg.sender][_token];
         uint256 currentStakedAmount = assetsInfo.stakedAmount;
 
@@ -212,7 +238,7 @@ contract Vault is IVault, Pausable, AccessControl {
     function requestClaim(
         address _token,
         uint256 _amount
-    ) external onlySupportedToken(_token) whenNotPaused returns (uint256 _returnID) {
+    ) external onlySupportedToken(_token) whenNotPaused notBlacklisted(msg.sender) returns (uint256 _returnID) {
         _updateRewardState(msg.sender, _token);
         uint256 exchangeRate = _getExchangeRate(_token);
 
@@ -262,7 +288,7 @@ contract Vault is IVault, Pausable, AccessControl {
         emit RequestClaim(msg.sender, _token, totalAmount, _returnID);
     }
 
-    function cancelClaim(uint256 _queueId, address _token) external whenNotPaused onlyCancelEnable {
+    function cancelClaim(uint256 _queueId, address _token) external whenNotPaused notBlacklisted(msg.sender) onlyCancelEnable {
         ClaimItem memory claimItem = claimQueue[_queueId];
         delete claimQueue[_queueId];
 
@@ -302,7 +328,7 @@ contract Vault is IVault, Pausable, AccessControl {
         emit CancelClaim(msg.sender, _token, principal + reward, _queueId);
     }
 
-    function claim(uint256 _queueID, address _token) external whenNotPaused {
+    function claim(uint256 _queueID, address _token) external whenNotPaused notBlacklisted(msg.sender) {
         ClaimItem memory claimItem = claimQueue[_queueID];
         address token = claimItem.token;
         AssetsInfo storage assetsInfo = userAssetsInfo[msg.sender][token];
@@ -345,7 +371,7 @@ contract Vault is IVault, Pausable, AccessControl {
     function flashWithdrawWithPenalty(
         address _token,
         uint256 _amount
-    ) external onlySupportedToken(_token) whenNotPaused onlyFlashEnable {
+    ) external onlySupportedToken(_token) whenNotPaused notBlacklisted(msg.sender) onlyFlashEnable {
         AssetsInfo storage assetsInfo = userAssetsInfo[msg.sender][_token];
         _updateRewardState(msg.sender, _token);
         uint256 exchangeRate = _getExchangeRate(_token);
@@ -483,7 +509,7 @@ contract Vault is IVault, Pausable, AccessControl {
         tokenAmount = (shares * exchangeRate) / 1e18;
     }
 
-    function transferOrTransferFrom(address token, address from, address to, uint256 amount) public returns (bool) {
+    function transferOrTransferFrom(address token, address from, address to, uint256 amount) public notBlacklisted(msg.sender) notBlacklisted(from) notBlacklisted(to) returns (bool) {
         require(from != to, "from can not be same as the to");
         require(amount > 0, "amount must be greater than 0");
 
@@ -638,7 +664,7 @@ contract Vault is IVault, Pausable, AccessControl {
         maxStakeAmount[_token] = _maxAmount;
     }
 
-    function setWaitingTime(uint256 _newWaitingTime) external onlyRole(DEFAULT_ADMIN_ROLE){
+    function setWaitingTime(uint256 _newWaitingTime) external onlyRole(DEFAULT_ADMIN_ROLE) {
         require(_newWaitingTime != WAITING_TIME, "Invalid");
 
         emit UpdateWaitingTime(WAITING_TIME, _newWaitingTime);
@@ -887,6 +913,10 @@ contract Vault is IVault, Pausable, AccessControl {
 
     function getTVL(address _token) external view returns (uint256) {
         return tvl[_token];
+    }
+
+    function isBlacklisted(address _address) public view returns (bool) {
+        return _blacklist[_address];
     }
 
     receive() external payable {
