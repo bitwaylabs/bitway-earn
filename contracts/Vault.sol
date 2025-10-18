@@ -285,7 +285,7 @@ contract Vault is IVault, Pausable, AccessControl {
             ++lastClaimQueueID;
         }
 
-        emit RequestClaim(msg.sender, _token, totalAmount, _returnID);
+        emit RequestClaim(msg.sender, _token, totalAmount, queueItem.principalAmount, queueItem.rewardAmount, _returnID);
     }
 
     function cancelClaim(uint256 _queueId, address _token) external whenNotPaused notBlacklisted(msg.sender) onlyCancelEnable {
@@ -423,7 +423,7 @@ contract Vault is IVault, Pausable, AccessControl {
             })
         );
 
-        emit FlashWithdraw(msg.sender, _token, totalAmount, fee);
+        emit FlashWithdraw(msg.sender, _token, totalAmount, principalAmount, rewardAmount, fee);
     }
 
     function _handleWithdraw(
